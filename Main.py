@@ -33,7 +33,7 @@ def write_message(username, message):
 
 
 # Streamlit App
-st.title("📡 Real-time School Chat Room(Made By Somebody who can code and use chatgpt)")
+st.title("📡 Real-time CHat romom")
 
 # Get username
 if "username" not in st.session_state:
