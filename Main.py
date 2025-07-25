@@ -75,4 +75,33 @@ with tab1:
 
     if st.button("Send"):
         if message.strip():
-            add_message(st.session_state.user
+            add_message(st.session_state.username, message.strip())
+            st.experimental_rerun()
+
+    if st.button("Clear All Messages"):
+        clear_messages()
+        st.success("All messages cleared.")
+        st.experimental_rerun()
+
+    # Live refresh
+    st.experimental_autorefresh(interval=3000)
+
+    st.subheader("Chat History (latest first):")
+    msgs = get_messages()
+
+    if msgs:
+        for username, msg, ts in msgs:
+            st.write(f"**[{ts.split('.')[0]}] {username}:** {msg}")
+    else:
+        st.info("No messages yet.")
+
+with tab2:
+    st.subheader("Admin")
+    user_to_ban = st.text_input("Ban a username:")
+    if st.button("Ban User") and user_to_ban.strip():
+        ban_user(user_to_ban.strip())
+        st.success(f"{user_to_ban} has been banned!")
+
+    st.write("Banned users:")
+    banned = get_banned_users()
+    st.write(banned if banned else "None")
