@@ -1,15 +1,14 @@
 import streamlit as st
 import sqlite3
-from datetime import datetime
-import time
-# === DB SETUP ===
 
+# === CONFIG ===
 DB_FILE = "chat.db"
 
+# === CONNECT DB ===
 conn = sqlite3.connect(DB_FILE, check_same_thread=False)
 c = conn.cursor()
 
-# Create tables if they don't exist
+# === CREATE TABLES ===
 c.execute("""
     CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,13 +17,11 @@ c.execute("""
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )
 """)
-
 c.execute("""
     CREATE TABLE IF NOT EXISTS banned_users (
         username TEXT PRIMARY KEY
     )
 """)
-
 conn.commit()
 
 # === DB FUNCTIONS ===
@@ -53,57 +50,29 @@ def get_banned_users():
     c.execute("SELECT username FROM banned_users")
     return [row[0] for row in c.fetchall()]
 
-# === STREAMLIT ===
+# === STREAMLIT APP ===
 
 st.title("📡 SQLite Real-time Chat Room")
 
-tabs = st.tabs(["Chat", "Admin"])
+tab1, tab2 = st.tabs(["Chat", "Admin"])
 
-# === CHAT TAB ===
-
-with tabs[0]:
+with tab1:
+    # Username input
     if "username" not in st.session_state or not st.session_state.username:
-        username = st.text_input("Enter your username to join:")
+        username = st.text_input("Enter your name to join:")
         if username:
             st.session_state.username = username.strip()
         else:
             st.stop()
 
+    # Banned check
     if is_banned(st.session_state.username):
         st.error("🚫 You are banned from this chat.")
         st.stop()
 
-    message = st.text_input("Your message:")
+    # Message input
+    message = st.text_input("Type your message:")
 
-    if st.button("Send") and message.strip():
-        add_message(st.session_state.username, message.strip())
-        st.rerun()
-
-    if st.button("Reset All Messages"):
-        clear_messages()
-        st.success("💣 All messages cleared.")
-        st.rerun()
-
-    time.sleep(3)
-    st.rerun()
-
-    st.subheader("Chat History (latest first):")
-    messages = get_messages()
-
-    for username, msg, ts in messages:
-        st.write(f"**[{ts.split('.')[0]}] {username}:** {msg}")
-
-# === ADMIN TAB ===
-
-with tabs[1]:
-    st.subheader("🚨 Admin Tools")
-
-    user_to_ban = st.text_input("Ban a user by name:")
-
-    if st.button("Ban User") and user_to_ban.strip():
-        ban_user(user_to_ban.strip())
-        st.success(f"{user_to_ban} has been banned.")
-
-    st.write("Currently banned users:")
-    banned_list = get_banned_users()
-    st.write(banned_list if banned_list else "None")
+    if st.button("Send"):
+        if message.strip():
+            add_message(st.session_state.user
