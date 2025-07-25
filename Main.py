@@ -77,14 +77,15 @@ with tabs[0]:
 
     if st.button("Send") and message.strip():
         add_message(st.session_state.username, message.strip())
-        st.experimental_rerun()
+        st.rerun()
 
     if st.button("Reset All Messages"):
         clear_messages()
         st.success("💣 All messages cleared.")
-        st.experimental_rerun()
+        st.rerun()
 
-    st.experimental_autorefresh(interval=3000)
+    time.sleep(3)
+    st.rerun()
 
     st.subheader("Chat History (latest first):")
     messages = get_messages()
