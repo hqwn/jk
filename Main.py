@@ -63,4 +63,46 @@ tabs = st.tabs(["Chat", "Admin"])
 
 with tabs[0]:
     if "username" not in st.session_state or not st.session_state.username:
-        user
+        username = st.text_input("Enter your username to join:")
+        if username:
+            st.session_state.username = username.strip()
+        else:
+            st.stop()
+
+    if is_banned(st.session_state.username):
+        st.error("🚫 You are banned from this chat.")
+        st.stop()
+
+    message = st.text_input("Your message:")
+
+    if st.button("Send") and message.strip():
+        add_message(st.session_state.username, message.strip())
+        st.experimental_rerun()
+
+    if st.button("Reset All Messages"):
+        clear_messages()
+        st.success("💣 All messages cleared.")
+        st.experimental_rerun()
+
+    st.experimental_autorefresh(interval=3000)
+
+    st.subheader("Chat History (latest first):")
+    messages = get_messages()
+
+    for username, msg, ts in messages:
+        st.write(f"**[{ts.split('.')[0]}] {username}:** {msg}")
+
+# === ADMIN TAB ===
+
+with tabs[1]:
+    st.subheader("🚨 Admin Tools")
+
+    user_to_ban = st.text_input("Ban a user by name:")
+
+    if st.button("Ban User") and user_to_ban.strip():
+        ban_user(user_to_ban.strip())
+        st.success(f"{user_to_ban} has been banned.")
+
+    st.write("Currently banned users:")
+    banned_list = get_banned_users()
+    st.write(banned_list if banned_list else "None")
