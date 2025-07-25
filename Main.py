@@ -5,6 +5,44 @@ import time
 import os
 MAX_LINES = 20
 CHAT_FILE = "chat.txt"
+BAD_WORDS = [
+    "fuck",
+    "shit",
+    "bitch",
+    "bastard",
+    "asshole",
+    "dick",
+    "cunt",
+    "piss",
+    "damn",
+    "slut",
+    "whore",
+    "fag",
+    "faggot",
+    "nigger",
+    "nigga",
+    "retard",
+    "spaz",
+    "twat",
+    "cock",
+    "douche",
+    "bollocks",
+    "wanker",
+    "arse",
+    "prick",
+    "motherfucker",
+    "goddamn",
+    "bloody",
+    "bugger",
+    "pussy",
+    "tit",
+    "boob",
+    "shithead",
+    "dipshit",
+    "cum",
+    "suck",
+    "sucker",
+]
 
 # Function to read chat
 def read_chat():
@@ -15,8 +53,21 @@ def read_chat():
     else:
         return []
 
+
+import re
+
+def censor_message(message, bad_words):
+    pattern = re.compile(
+        r'\b(' + '|'.join(re.escape(word) for word in bad_words) + r')\b',
+        flags=re.IGNORECASE
+    )
+    return pattern.sub(lambda m: '*' * len(m.group()), message)
+
+
+
 # Function to write message
 def write_message(username, message):
+    message = censor_message(message, BAD_WORDS)
     # Append new message
     with open(CHAT_FILE, "a") as f:
         f.write(f"{username}: {message}\n")
