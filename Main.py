@@ -87,20 +87,20 @@ def write_message(username, message):
 st.title("📡 Real-time CHat romom")
 
 # Get username
-if "username" not in st.session_state:
-    st.session_state.username = st.text_input("Enter your name to join:", key="username_input")
-    st.stop()
+b =  st.text_input("Enter your name to join:", key="username_input")
 
 # Message input
 message = st.text_input("Your message:", key="message_input")
 
 # Send button
 if st.button("Send"):
+    if not b:
+        b = 'anonymous'
     if message.strip() != "":
         if message.strip() == 'clear sesame':
             with open(CHAT_FILE, "w") as f:
                 pass  # This clears the file completely
-        write_message(st.session_state.username, message)
+        write_message(b, message)
         st.rerun()
 # Show chat history
 st.subheader("Chat History:")
