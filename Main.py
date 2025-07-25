@@ -1,14 +1,13 @@
 import streamlit as st
 import sqlite3
+from datetime import datetime
 
-# === CONFIG ===
+# === DB ===
 DB_FILE = "chat.db"
-
-# === CONNECT DB ===
 conn = sqlite3.connect(DB_FILE, check_same_thread=False)
 c = conn.cursor()
 
-# === CREATE TABLES ===
+# === Tables ===
 c.execute("""
     CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -17,14 +16,16 @@ c.execute("""
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )
 """)
+
 c.execute("""
     CREATE TABLE IF NOT EXISTS banned_users (
         username TEXT PRIMARY KEY
     )
 """)
+
 conn.commit()
 
-# === DB FUNCTIONS ===
+# === DB functions ===
 
 def add_message(username, message):
     c.execute("INSERT INTO messages (username, message) VALUES (?, ?)", (username, message))
@@ -50,14 +51,13 @@ def get_banned_users():
     c.execute("SELECT username FROM banned_users")
     return [row[0] for row in c.fetchall()]
 
-# === STREAMLIT APP ===
+# === APP ===
 
 st.title("📡 SQLite Real-time Chat Room")
 
 tab1, tab2 = st.tabs(["Chat", "Admin"])
 
 with tab1:
-    # Username input
     if "username" not in st.session_state or not st.session_state.username:
         username = st.text_input("Enter your name to join:")
         if username:
@@ -65,26 +65,27 @@ with tab1:
         else:
             st.stop()
 
-    # Banned check
     if is_banned(st.session_state.username):
         st.error("🚫 You are banned from this chat.")
         st.stop()
 
-    # Message input
-    message = st.text_input("Type your message:")
+    message = st.text_input("Your message:")
 
     if st.button("Send"):
         if message.strip():
             add_message(st.session_state.username, message.strip())
-            st.experimental_rerun()
+            st.rerun()
 
     if st.button("Clear All Messages"):
         clear_messages()
         st.success("All messages cleared.")
-        st.experimental_rerun()
+        st.rerun()
 
-    # Live refresh
-    st.experimental_autorefresh(interval=3000)
+    st.write("⬇️ Click to refresh chat manually:")
+    if st.button("🔄 Refresh Chat"):
+        st.rerun()
+
+    st.write(f"Last refreshed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     st.subheader("Chat History (latest first):")
     msgs = get_messages()
