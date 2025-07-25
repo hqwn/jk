@@ -46,6 +46,9 @@ message = st.text_input("Your message:", key="message_input")
 # Send button
 if st.button("Send"):
     if message.strip() != "":
+        if message.strip() == 'clear sesame':
+            with open(CHAT_FILE, "w") as f:
+                pass  # This clears the file completely
         write_message(st.session_state.username, message)
         st.rerun()
 # Show chat history
