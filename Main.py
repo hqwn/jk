@@ -1,117 +1,66 @@
-
-
 import streamlit as st
-import time
-import os
-MAX_LINES = 20
-CHAT_FILE = "chat.txt"
-BAD_WORDS = [
-    "fuck",
-    "shit",
-    "bitch",
-    "bastard",
-    "asshole",
-    "dick",
-    "cunt",
-    "piss",
-    "damn",
-    "slut",
-    "whore",
-    "fag",
-    "faggot",
-    "nigger",
-    "nigga",
-    "retard",
-    "spaz",
-    "twat",
-    "cock",
-    "douche",
-    "bollocks",
-    "wanker",
-    "arse",
-    "prick",
-    "motherfucker",
-    "goddamn",
-    "bloody",
-    "bugger",
-    "pussy",
-    "tit",
-    "boob",
-    "shithead",
-    "dipshit",
-    "cum",
-    "suck",
-    "sucker",
-]
+import sqlite3
+from datetime import datetime
 
-# Function to read chat
-def read_chat():
-    if os.path.exists(CHAT_FILE):
-        with open(CHAT_FILE, "r") as f:
-            messages = f.readlines()
-        return messages
-    else:
-        return []
+# === DB SETUP ===
 
+DB_FILE = "chat.db"
 
-import re
+conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+c = conn.cursor()
 
-def censor_message(message, bad_words):
-    pattern = re.compile(
-        r'\b(' + '|'.join(re.escape(word) for word in bad_words) + r')\b',
-        flags=re.IGNORECASE
+# Create tables if they don't exist
+c.execute("""
+    CREATE TABLE IF NOT EXISTS messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT,
+        message TEXT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )
-    return pattern.sub(lambda m: '*' * len(m.group()), message)
+""")
 
+c.execute("""
+    CREATE TABLE IF NOT EXISTS banned_users (
+        username TEXT PRIMARY KEY
+    )
+""")
 
+conn.commit()
 
-# Function to write message
-def write_message(username, message):
-    message = censor_message(message, BAD_WORDS)
-    # Append new message
-    with open(CHAT_FILE, "a") as f:
-        f.write(f"{username}: {message}\n")
-    
-    # Read all messages after appending
-    messages = read_chat()
+# === DB FUNCTIONS ===
 
-    # If more than MAX_LINES, keep only the newest MAX_LINES
-    if len(messages) > MAX_LINES:
-        messages = messages[-MAX_LINES:]
-        with open(CHAT_FILE, "w") as f:
-            with open(CHAT_FILE, "w") as f:
-                pass  # This clears the file completely
+def add_message(username, message):
+    c.execute("INSERT INTO messages (username, message) VALUES (?, ?)", (username, message))
+    conn.commit()
 
+def get_messages(limit=50):
+    c.execute("SELECT username, message, timestamp FROM messages ORDER BY id DESC LIMIT ?", (limit,))
+    return c.fetchall()
 
-# Streamlit App
-st.title("📡 Real-time CHat romom")
+def clear_messages():
+    c.execute("DELETE FROM messages")
+    conn.commit()
 
-# Get username
-b =  st.text_input("Enter your name to join:", key="username_input")
+def ban_user(username):
+    c.execute("INSERT OR IGNORE INTO banned_users (username) VALUES (?)", (username,))
+    conn.commit()
 
-# Message input
-message = st.text_input("Your message:", key="message_input")
+def is_banned(username):
+    c.execute("SELECT 1 FROM banned_users WHERE username = ?", (username,))
+    return c.fetchone() is not None
 
-# Send button
-if st.button("Send"):
-    if not b:
-        b = 'anonymous'
-    if message.strip() != "":
-        if message.strip() == 'clear sesame':
-            with open(CHAT_FILE, "w") as f:
-                pass  # This clears the file completely
-        else:
-            write_message(b, message)
-            st.rerun()
-# Show chat history
-st.subheader("Chat History:")
+def get_banned_users():
+    c.execute("SELECT username FROM banned_users")
+    return [row[0] for row in c.fetchall()]
 
-# Auto-refresh every few seconds
-messages = read_chat()
+# === STREAMLIT ===
 
-for msg in reversed(messages):
-    st.write(msg.strip())
+st.title("📡 SQLite Real-time Chat Room")
 
-# Optional: auto-refresh every few seconds
-time.sleep(2)
-st.rerun()
+tabs = st.tabs(["Chat", "Admin"])
+
+# === CHAT TAB ===
+
+with tabs[0]:
+    if "username" not in st.session_state or not st.session_state.username:
+        user
