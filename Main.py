@@ -100,9 +100,9 @@ if st.button("Send"):
         if message.strip() == 'clear sesame':
             with open(CHAT_FILE, "w") as f:
                 pass  # This clears the file completely
-            break
-        write_message(b, message)
-        st.rerun()
+        else:
+            write_message(b, message)
+            st.rerun()
 # Show chat history
 st.subheader("Chat History:")
 
