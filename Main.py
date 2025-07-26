@@ -157,7 +157,7 @@ with chat_tab:
         st.session_state.message_input = ""
 
     if "message_input" not in st.session_state:
-    st.session_state.message_input = ""
+        st.session_state.message_input = ""
 
     def send_message():
         msg = st.session_state.message_input.strip()
