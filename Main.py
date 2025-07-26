@@ -4,7 +4,6 @@ from datetime import datetime
 import re
 import time
 import pandas as pd
-import io
 
 # === DATABASE SETUP ===
 DB_FILE = "chat.db"
@@ -64,7 +63,6 @@ def censor_text(text):
 def add_message(username, message, color='black'):
     username = censor_text(username)
     message = censor_text(message)
-    # Don't add message if user is muted
     if is_muted(username):
         return
     c.execute("INSERT INTO messages (username, message, color) VALUES (?, ?, ?)", (username, message, color))
@@ -80,7 +78,6 @@ def clear_messages():
 
 def ban_user(username):
     c.execute("INSERT OR IGNORE INTO banned_users (username) VALUES (?)", (username,))
-    # Also unmute banned user
     unmute_user(username)
     conn.commit()
 
@@ -182,14 +179,14 @@ with chat_tab:
     if "message_input" not in st.session_state:
         st.session_state.message_input = ""
 
+    message = st.text_input("Your message:", key="message_input", value=st.session_state.message_input)
+
     send_clicked = st.button("Send", key="send_button")
 
     if send_clicked and st.session_state.message_input.strip():
-        add_message(st.session_state.username, st.session_state.message_input.strip(), admin_color if st.session_state.is_admin else "black")
+        add_message(st.session_state.username, st.session_state.message_input.strip(), admin_color if st.session_state.is_admin else "white")
         st.session_state.message_input = ""
-        st.rerun()
-
-    message = st.text_input("Your message:", key="message_input", value=st.session_state.message_input)
+        st.experimental_rerun()
 
     st.subheader("📜 Chat History (latest first)")
 
@@ -202,7 +199,7 @@ with chat_tab:
                 used_color = color if color else "gold"
                 st.markdown(f"<span style='color:{used_color};font-weight:bold'>[{ts.split('.')[0]}] {username}: {msg}</span>", unsafe_allow_html=True)
             else:
-                st.markdown(f"<span style='color:black'>{display_name} {msg}</span>", unsafe_allow_html=True)
+                st.markdown(f"<span style='color:white'>{display_name} {msg}</span>", unsafe_allow_html=True)
     else:
         st.info("No messages yet.")
 
@@ -211,49 +208,41 @@ if st.session_state.is_admin:
     with admin_tab:
         st.subheader("🚨 Admin Tools")
 
-        # Ban User
         user_to_ban = st.text_input("Ban a username:", key="ban_user")
         if st.button("Ban User") and user_to_ban.strip():
             ban_user(user_to_ban.strip())
             st.success(f"✅ {user_to_ban} has been banned.")
 
-        # Mute User
         user_to_mute = st.text_input("Mute a username:", key="mute_user")
         if st.button("Mute User") and user_to_mute.strip():
             mute_user(user_to_mute.strip())
             st.success(f"🔇 {user_to_mute} has been muted.")
 
-        # Unmute User
         user_to_unmute = st.text_input("Unmute a username:", key="unmute_user")
         if st.button("Unmute User") and user_to_unmute.strip():
             unmute_user(user_to_unmute.strip())
             st.success(f"🔊 {user_to_unmute} has been unmuted.")
 
-        # Clear all messages
         if st.button("🧨 Clear All Messages"):
             clear_messages()
             st.success("💣 All messages cleared.")
 
-        # Export chat CSV
         if st.button("📤 Export Chat History as CSV"):
             csv_data = export_chat()
             st.download_button("Download Chat CSV", csv_data, file_name="chat_history.csv", mime="text/csv")
 
-        # Show banned users
         st.write("🧾 Currently Banned Users:")
         banned = get_banned_users()
         st.write(banned if banned else "None")
 
-        # Show muted users
         st.write("🔇 Currently Muted Users:")
         muted = get_muted_users()
         st.write(muted if muted else "None")
 
-        # Stats
         users_count, messages_count = get_stats()
         st.write(f"📊 Total users who messaged: **{users_count}**")
         st.write(f"💬 Total messages sent: **{messages_count}**")
 
 # === AUTO REFRESH ===
 time.sleep(2)
-st.rerun()
+st.experimental_rerun()
