@@ -91,8 +91,8 @@ if "username" not in st.session_state or not st.session_state.username:
 
             1. No offensive language.
             2. No spamming.
-            3. Respect other users.
-            4. Admin has final say.
+            3. Admin Username: aryan, if you guess the password you can be admin with me
+            4. I can ban you forever if you do something bad
 
             By continuing, you accept these rules.
             """)
