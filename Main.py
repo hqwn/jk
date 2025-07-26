@@ -120,7 +120,7 @@ if submit and message.strip():
     add_message(st.session_state.username, message.strip(), color)
     st.rerun()
 
-st.subheader("\U0001F4DC Chat History")
+st.subheader("\U0001F4DC Chat History (latest first)")
 msgs = get_messages()
 
 if msgs:
