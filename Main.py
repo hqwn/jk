@@ -28,6 +28,7 @@ conn.commit()
 
 BAD_WORDS = ["fuck", "shit", "bitch", "asshole", "dick"]
 
+# Censoring logic
 def build_obfuscated_pattern(word):
     letters = list(word)
     pattern = r''
@@ -42,13 +43,15 @@ def censor_text(text):
         text = regex.sub(lambda m: '*' * len(word), text)
     return text
 
+# Chat DB ops
 def add_message(username, message, color='white'):
     username = censor_text(username)
     message = censor_text(message)
     c.execute("INSERT INTO messages (username, message, color) VALUES (?, ?, ?)", (username, message, color))
     conn.commit()
+    delete_old_messages()
 
-def get_messages(limit=50):
+def get_messages(limit=20):
     c.execute("SELECT username, message, color, timestamp FROM messages ORDER BY id DESC LIMIT ?", (limit,))
     return c.fetchall()
 
@@ -62,6 +65,10 @@ def ban_user(username):
 
 def clear_chat():
     c.execute("DELETE FROM messages")
+    conn.commit()
+
+def delete_old_messages():
+    c.execute("DELETE FROM messages WHERE id NOT IN (SELECT id FROM messages ORDER BY id DESC LIMIT 20)")
     conn.commit()
 
 # Auth/login
@@ -89,10 +96,10 @@ if not st.session_state.username:
     else:
         st.stop()
 
-st.title("📡 SQLite Real-time Chat Room")
+st.title("\U0001F4E1 SQLite Real-time Chat Room")
 
 if st.session_state.username == "admin" and st.session_state.admin_authenticated:
-    st.subheader("🔧 Admin Panel")
+    st.subheader("\U0001F527 Admin Panel")
     ban_target = st.text_input("Ban a user (exact username):")
     if st.button("Ban User") and ban_target:
         ban_user(ban_target)
@@ -113,7 +120,7 @@ if submit and message.strip():
     add_message(st.session_state.username, message.strip(), color)
     st.rerun()
 
-st.subheader("📜 Chat History")
+st.subheader("\U0001F4DC Chat History")
 msgs = get_messages()
 
 if msgs:
@@ -124,3 +131,8 @@ if msgs:
         st.markdown(f"<span style='color:{safe_color};font-weight:bold'>[{time_fmt}] {username}:</span> <span style='color:{msg_color}'>{msg}</span>", unsafe_allow_html=True)
 else:
     st.info("No messages yet.")
+
+# Auto refresh every 2 seconds using st.rerun
+if int(time.time()) % 2 == 0:
+    time.sleep(0.1)
+    st.rerun()
