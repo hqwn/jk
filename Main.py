@@ -130,7 +130,8 @@ if msgs:
         st.markdown(f"<span style='color:{safe_color};font-weight:bold'>[{time_fmt}] {username}:</span> <span style='color:{msg_color}'>{msg}</span>", unsafe_allow_html=True)
 else:
     st.info("No messages yet.")
-
+time.sleep(2)
+    st.rerun()
 # Auto-refresh using JavaScript every 2 seconds
 st.markdown("""
 <script>
