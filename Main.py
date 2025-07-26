@@ -118,7 +118,7 @@ with st.form(key="message_form", clear_on_submit=True):
 if submit and message.strip():
     color = admin_color if st.session_state.username == "aryan" else "white"
     add_message(st.session_state.username, message.strip(), color)
-    st.experimental_rerun()
+    st.rerun()
 
 st.subheader("\U0001F4DC Chat History")
 msgs = get_messages()
