@@ -1,7 +1,7 @@
 import streamlit as st
 import sqlite3
 from datetime import datetime
-
+import time
 # === DB ===
 DB_FILE = "chat.db"
 conn = sqlite3.connect(DB_FILE, check_same_thread=False)
