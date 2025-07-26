@@ -50,7 +50,7 @@ def add_message(username, message, color='white'):
 
 def get_messages(limit=50):
     c.execute("SELECT username, message, color, timestamp FROM messages ORDER BY id DESC LIMIT ?", (limit,))
-    return c.fetchall()[::-1]
+    return c.fetchall()
 
 def is_banned(username):
     c.execute("SELECT 1 FROM banned_users WHERE username=?", (username,))
@@ -120,9 +120,7 @@ if msgs:
     for username, msg, color, ts in msgs:
         time_fmt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S").strftime("%H:%M")
         safe_color = color if color else "white"
-        st.markdown(f"<span style='color:{safe_color};font-weight:bold'>[{time_fmt}] {username}:</span> <span style='color:white'>{msg}</span>", unsafe_allow_html=True)
+        msg_color = "white" if username.lower() != "admin" else safe_color
+        st.markdown(f"<span style='color:{safe_color};font-weight:bold'>[{time_fmt}] {username}:</span> <span style='color:{msg_color}'>{msg}</span>", unsafe_allow_html=True)
 else:
     st.info("No messages yet.")
-
-time.sleep(2)
-st.rerun()
