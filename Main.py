@@ -4,7 +4,7 @@ import re
 import time
 from datetime import datetime
 
-# DB setup (same as before)
+# DB setup
 DB_FILE = "chat.db"
 conn = sqlite3.connect(DB_FILE, check_same_thread=False)
 c = conn.cursor()
@@ -26,8 +26,7 @@ CREATE TABLE IF NOT EXISTS banned_users (
 """)
 conn.commit()
 
-# Bad words & censor functions (same as before) ...
-BAD_WORDS = ["fuck", "shit", "bitch", "asshole", "dick"]  # trimmed for brevity
+BAD_WORDS = ["fuck", "shit", "bitch", "asshole", "dick"]
 
 def build_obfuscated_pattern(word):
     letters = list(word)
@@ -51,45 +50,79 @@ def add_message(username, message, color='white'):
 
 def get_messages(limit=50):
     c.execute("SELECT username, message, color, timestamp FROM messages ORDER BY id DESC LIMIT ?", (limit,))
-    return c.fetchall()
+    return c.fetchall()[::-1]
 
-# Simplified auth for demo
+def is_banned(username):
+    c.execute("SELECT 1 FROM banned_users WHERE username=?", (username,))
+    return c.fetchone() is not None
+
+def ban_user(username):
+    c.execute("INSERT OR IGNORE INTO banned_users (username) VALUES (?)", (username,))
+    conn.commit()
+
+def clear_chat():
+    c.execute("DELETE FROM messages")
+    conn.commit()
+
+# Auth/login
 if "username" not in st.session_state:
+    st.session_state.username = ""
+if "admin_authenticated" not in st.session_state:
+    st.session_state.admin_authenticated = False
+
+if not st.session_state.username:
     username = st.text_input("Enter your username:")
     if username:
-        st.session_state.username = username.strip()
+        if username.lower() == "admin":
+            pwd = st.text_input("Enter admin password:", type="password")
+            if pwd == "thisisnotmypassword":
+                st.session_state.admin_authenticated = True
+                st.session_state.username = "admin"
+            else:
+                st.warning("Incorrect password")
+                st.stop()
+        else:
+            if is_banned(username):
+                st.error("You are banned from this chat.")
+                st.stop()
+            st.session_state.username = username.strip()
     else:
         st.stop()
 
-# Main chat UI
 st.title("📡 SQLite Real-time Chat Room")
 
-if "admin_color" not in st.session_state:
-    st.session_state.admin_color = "#FFD700"  # gold default
+if st.session_state.username == "admin" and st.session_state.admin_authenticated:
+    st.subheader("🔧 Admin Panel")
+    ban_target = st.text_input("Ban a user (exact username):")
+    if st.button("Ban User") and ban_target:
+        ban_user(ban_target)
+        st.success(f"User '{ban_target}' has been banned.")
 
-admin_color = st.color_picker("Pick admin message color", st.session_state.admin_color) if st.session_state.username.lower() == "aryan" else None
-if admin_color:
-    st.session_state.admin_color = admin_color
+    if st.button("Clear Chat"):
+        clear_chat()
+        st.success("Chat has been cleared.")
+
+admin_color = st.color_picker("Pick admin message color", "#FFD700") if st.session_state.username == "admin" else None
 
 with st.form(key="message_form", clear_on_submit=True):
     message = st.text_input("Your message:")
     submit = st.form_submit_button("Send")
 
 if submit and message.strip():
-    color = st.session_state.admin_color if st.session_state.username.lower() == "aryan" else "white"
+    color = admin_color if st.session_state.username == "admin" else "white"
     add_message(st.session_state.username, message.strip(), color)
-    st.rerun()
+    st.experimental_rerun()
 
-st.subheader("📜 Chat History (latest first)")
+st.subheader("📜 Chat History")
 msgs = get_messages()
 
 if msgs:
     for username, msg, color, ts in msgs:
-        display_time = ts.split(".")[0]
+        time_fmt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S").strftime("%H:%M")
         safe_color = color if color else "white"
-        st.markdown(f"<span style='color:{safe_color};font-weight:bold'>[{display_time}] {username}:</span> <span style='color:white'>{msg}</span>", unsafe_allow_html=True)
+        st.markdown(f"<span style='color:{safe_color};font-weight:bold'>[{time_fmt}] {username}:</span> <span style='color:white'>{msg}</span>", unsafe_allow_html=True)
 else:
     st.info("No messages yet.")
 
 time.sleep(2)
-st.rerun()
+st.experimental_rerun()
