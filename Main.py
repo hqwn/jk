@@ -80,11 +80,11 @@ if "admin_authenticated" not in st.session_state:
 if not st.session_state.username:
     username = st.text_input("Enter your username:")
     if username:
-        if username.lower() == "admin":
+        if username.lower() == "aryan":
             pwd = st.text_input("Enter admin password:", type="password")
             if pwd == "thisisnotmypassword":
                 st.session_state.admin_authenticated = True
-                st.session_state.username = "admin"
+                st.session_state.username = "aryan"
             else:
                 st.warning("Incorrect password")
                 st.stop()
@@ -98,7 +98,7 @@ if not st.session_state.username:
 
 st.title("\U0001F4E1 SQLite Real-time Chat Room")
 
-if st.session_state.username == "admin" and st.session_state.admin_authenticated:
+if st.session_state.username == "aryan" and st.session_state.admin_authenticated:
     st.subheader("\U0001F527 Admin Panel")
     ban_target = st.text_input("Ban a user (exact username):")
     if st.button("Ban User") and ban_target:
@@ -109,14 +109,14 @@ if st.session_state.username == "admin" and st.session_state.admin_authenticated
         clear_chat()
         st.success("Chat has been cleared.")
 
-admin_color = st.color_picker("Pick admin message color", "#FFD700") if st.session_state.username == "admin" else None
+admin_color = st.color_picker("Pick admin message color", "#FFD700") if st.session_state.username == "aryan" else None
 
 with st.form(key="message_form", clear_on_submit=True):
     message = st.text_input("Your message:")
     submit = st.form_submit_button("Send")
 
 if submit and message.strip():
-    color = admin_color if st.session_state.username == "admin" else "white"
+    color = admin_color if st.session_state.username == "aryan" else "white"
     add_message(st.session_state.username, message.strip(), color)
     st.rerun()
 
@@ -127,12 +127,12 @@ if msgs:
     for username, msg, color, ts in msgs:
         time_fmt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S").strftime("%H:%M")
         safe_color = color if color else "white"
-        msg_color = "white" if username.lower() != "admin" else safe_color
+        msg_color = "white" if username.lower() != "aryan" else safe_color
         st.markdown(f"<span style='color:{safe_color};font-weight:bold'>[{time_fmt}] {username}:</span> <span style='color:{msg_color}'>{msg}</span>", unsafe_allow_html=True)
 else:
     st.info("No messages yet.")
 
-# Auto refresh every 2 seconds using st.rerun
-if int(time.time()) % 2 == 0:
+# Auto refresh every 2 seconds using time and rerun
+if time.time() % 2 < 0.1:
     time.sleep(0.1)
     st.rerun()
