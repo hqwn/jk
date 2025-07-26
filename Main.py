@@ -110,7 +110,7 @@ if not st.session_state.username:
             """)
             if st.button("I Accept the Rules"):
                 st.session_state.rules_accepted = True
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.stop()
 
@@ -119,14 +119,14 @@ if not st.session_state.username:
             if password == "patrick@234":
                 st.session_state.is_admin = True
                 st.session_state.username = username.strip()
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.warning("🔒 Wrong password. Try again.")
                 st.stop()
         else:
             st.session_state.is_admin = False
             st.session_state.username = username.strip()
-            st.experimental_rerun()
+            st.rerun()
     else:
         st.stop()
 
@@ -164,13 +164,13 @@ with chat_tab:
             color = st.session_state.admin_color if st.session_state.is_admin else "white"
             add_message(st.session_state.username, msg, color)
             st.session_state.message_input = ""
-            st.experimental_rerun()
+            st.rerun()
 
     if st.session_state.is_admin:
         if st.button("🧨 Clear All Messages"):
             clear_messages()
             st.success("💣 All messages cleared.")
-            st.experimental_rerun()
+            st.rerun()
 
     st.subheader("📜 Chat History (latest first)")
 
@@ -207,4 +207,4 @@ if st.session_state.is_admin:
 
 # Auto-refresh every 2 seconds
 time.sleep(2)
-st.experimental_rerun()
+st.rerun()
