@@ -25,8 +25,7 @@ c.execute("""
     )
 """)
 try:
-    c.execute('''ALTER TABLE messages ADD COLUMN color TEXT DEFAULT 'black';
-    ''')
+    c.execute('ALTER TABLE messages ADD COLUMN color TEXT DEFAULT \'black\';')
 except:
     pass
 conn.commit()
@@ -87,9 +86,8 @@ st.set_page_config("Chat Room", layout="wide")
 st.title("📡 SQLite Real-time Chat Room")
 
 if "username" not in st.session_state or not st.session_state.username:
-    username = st.text_input("Enter your username:")
+    username = st.text_input("Enter your username:", key="username_input")
     if username:
-        # Show rules popup once per new user:
         if "rules_accepted" not in st.session_state:
             st.info("""
             **Welcome to the chat! Please follow these rules:**
@@ -101,13 +99,13 @@ if "username" not in st.session_state or not st.session_state.username:
 
             By continuing, you accept these rules.
             """)
-            accept = st.button("I Accept the Rules")
+            accept = st.button("I Accept the Rules", key="accept_rules")
             if not accept:
                 st.stop()
             st.session_state.rules_accepted = True
 
         if username.strip().lower() == "aryan":
-            password = st.text_input("Enter admin password:", type="password")
+            password = st.text_input("Enter admin password:", type="password", key="admin_password")
             if password != "monkey@123":
                 st.warning("🔒 Wrong password. Try again.")
                 st.stop()
@@ -115,6 +113,7 @@ if "username" not in st.session_state or not st.session_state.username:
                 st.session_state.is_admin = True
         else:
             st.session_state.is_admin = False
+
         st.session_state.username = username.strip()
     else:
         st.stop()
@@ -139,24 +138,22 @@ with chat_tab:
 
     # Admin text color picker:
     if st.session_state.is_admin:
-        admin_color = st.color_picker("Pick your message text color", value=st.session_state.get("admin_color", "#FFD700"))
+        admin_color = st.color_picker("Pick your message text color", value=st.session_state.get("admin_color", "#FFD700"), key="color_picker")
         st.session_state.admin_color = admin_color
 
-    message = st.text_input("Your message:")
+    if "message_input" not in st.session_state:
+        st.session_state.message_input = ""
 
-    if st.button("Send"):
-        if message.strip():
-            color = admin_color if st.session_state.is_admin else "black"
-            add_message(st.session_state.username, message.strip(), color)
-            st.rerun()
+    message = st.text_input("Your message:", key="message_input", value=st.session_state.message_input)
 
-    if st.session_state.is_admin:
-        if st.button("🧨 Clear All Messages"):
-            clear_messages()
-            st.success("💣 All messages cleared.")
-            st.rerun()
+    send_clicked = st.button("Send", key="send_button")
 
-    st.write(f"Last refreshed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    if send_clicked and message.strip():
+        color = admin_color if st.session_state.is_admin else "black"
+        add_message(st.session_state.username, message.strip(), color)
+        st.session_state.message_input = ""  # clear input after send
+        st.experimental_rerun()
+
     st.subheader("📜 Chat History (latest first)")
 
     msgs = get_messages()
@@ -164,7 +161,6 @@ with chat_tab:
     if msgs:
         for username, msg, color, ts in msgs:
             display_name = f"**[{ts.split('.')[0]}] {username}:**"
-            # Show admin messages in chosen color or gold fallback
             if username.strip().lower() == "aryan":
                 used_color = color if color else "gold"
                 st.markdown(f"<span style='color:{used_color};font-weight:bold'>[{ts.split('.')[0]}] {username}: {msg}</span>", unsafe_allow_html=True)
@@ -188,4 +184,4 @@ if st.session_state.is_admin:
 
 # === AUTO REFRESH ===
 time.sleep(2)
-st.rerun()
+st.experimental_rerun()
