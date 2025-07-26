@@ -168,40 +168,28 @@ else:
     chat_tab = tabs[0]
 
 # === CHAT TAB ===
-with chat_tab:
-    st.subheader("Send Message")
+# --- Inside chat tab ---
 
-    admin_color = 'gold'
-    if st.session_state.is_admin:
-        admin_color = st.color_picker("Pick your message text color", value=st.session_state.get("admin_color", "#FFD700"), key="color_picker")
-        st.session_state.admin_color = admin_color
+admin_color = 'gold'
+if st.session_state.is_admin:
+    admin_color = st.color_picker("Pick your message text color", value=st.session_state.get("admin_color", "#FFD700"), key="color_picker")
+    st.session_state.admin_color = admin_color
 
-    if "message_input" not in st.session_state:
-        st.session_state.message_input = ""
+if "message_input" not in st.session_state:
+    st.session_state.message_input = ""
 
-    message = st.text_input("Your message:", key="message_input", value=st.session_state.message_input)
+def send_message():
+    msg = st.session_state.message_input.strip()
+    if msg:
+        color = st.session_state.admin_color if st.session_state.is_admin else "white"
+        add_message(st.session_state.username, msg, color)
+    st.session_state.message_input = ""
 
-    send_clicked = st.button("Send", key="send_button")
+message = st.text_input("Your message:", key="message_input")
 
-    if send_clicked and st.session_state.message_input.strip():
-        add_message(st.session_state.username, st.session_state.message_input.strip(), admin_color if st.session_state.is_admin else "white")
-        st.session_state.message_input = ""
-        st.rerun()
-
-    st.subheader("📜 Chat History (latest first)")
-
-    msgs = get_messages()
-
-    if msgs:
-        for username, msg, color, ts in msgs:
-            display_name = f"**[{ts.split('.')[0]}] {username}:**"
-            if username.strip().lower() == "aryan":
-                used_color = color if color else "gold"
-                st.markdown(f"<span style='color:{used_color};font-weight:bold'>[{ts.split('.')[0]}] {username}: {msg}</span>", unsafe_allow_html=True)
-            else:
-                st.markdown(f"<span style='color:white'>{display_name} {msg}</span>", unsafe_allow_html=True)
-    else:
-        st.info("No messages yet.")
+if st.button("Send"):
+    send_message()
+    st.experimental_rerun()
 
 # === ADMIN TAB ===
 if st.session_state.is_admin:
