@@ -2,6 +2,7 @@ import streamlit as st
 import sqlite3
 from datetime import datetime
 import re
+import time
 
 # === DATABASE ===
 DB_FILE = "chat.db"
@@ -14,6 +15,7 @@ c.execute("""
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT,
         message TEXT,
+        color TEXT DEFAULT 'black',
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )
 """)
@@ -49,14 +51,14 @@ def censor_text(text):
     return text
 
 # === DB ACTIONS ===
-def add_message(username, message):
+def add_message(username, message, color='black'):
     username = censor_text(username)
     message = censor_text(message)
-    c.execute("INSERT INTO messages (username, message) VALUES (?, ?)", (username, message))
+    c.execute("INSERT INTO messages (username, message, color) VALUES (?, ?, ?)", (username, message, color))
     conn.commit()
 
 def get_messages(limit=50):
-    c.execute("SELECT username, message, timestamp FROM messages ORDER BY id DESC LIMIT ?", (limit,))
+    c.execute("SELECT username, message, color, timestamp FROM messages ORDER BY id DESC LIMIT ?", (limit,))
     return c.fetchall()
 
 def clear_messages():
@@ -75,13 +77,30 @@ def get_banned_users():
     c.execute("SELECT username FROM banned_users")
     return [row[0] for row in c.fetchall()]
 
-# === LOGIN ===
+# === LOGIN & RULES POPUP ===
 st.set_page_config("Chat Room", layout="wide")
 st.title("📡 SQLite Real-time Chat Room")
 
 if "username" not in st.session_state or not st.session_state.username:
     username = st.text_input("Enter your username:")
     if username:
+        # Show rules popup once per new user:
+        if "rules_accepted" not in st.session_state:
+            st.info("""
+            **Welcome to the chat! Please follow these rules:**
+
+            1. No offensive language.
+            2. No spamming.
+            3. Respect other users.
+            4. Admin has final say.
+
+            By continuing, you accept these rules.
+            """)
+            accept = st.button("I Accept the Rules")
+            if not accept:
+                st.stop()
+            st.session_state.rules_accepted = True
+
         if username.strip().lower() == "aryan":
             password = st.text_input("Enter admin password:", type="password")
             if password != "monkey@123":
@@ -110,10 +129,20 @@ else:
 # === CHAT TAB ===
 with chat_tab:
     st.subheader("Send Message")
+
+    admin_color = 'gold'  # default admin color
+
+    # Admin text color picker:
+    if st.session_state.is_admin:
+        admin_color = st.color_picker("Pick your message text color", value=st.session_state.get("admin_color", "#FFD700"))
+        st.session_state.admin_color = admin_color
+
     message = st.text_input("Your message:")
+
     if st.button("Send"):
         if message.strip():
-            add_message(st.session_state.username, message.strip())
+            color = admin_color if st.session_state.is_admin else "black"
+            add_message(st.session_state.username, message.strip(), color)
             st.rerun()
 
     if st.session_state.is_admin:
@@ -122,21 +151,20 @@ with chat_tab:
             st.success("💣 All messages cleared.")
             st.rerun()
 
-    if st.button("🔄 Refresh Chat"):
-        st.rerun()
-
     st.write(f"Last refreshed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     st.subheader("📜 Chat History (latest first)")
 
     msgs = get_messages()
 
     if msgs:
-        for username, msg, ts in msgs:
+        for username, msg, color, ts in msgs:
             display_name = f"**[{ts.split('.')[0]}] {username}:**"
+            # Show admin messages in chosen color or gold fallback
             if username.strip().lower() == "aryan":
-                st.markdown(f"<span style='color:gold;font-weight:bold'>[{ts.split('.')[0]}] {username}: {msg}</span>", unsafe_allow_html=True)
+                used_color = color if color else "gold"
+                st.markdown(f"<span style='color:{used_color};font-weight:bold'>[{ts.split('.')[0]}] {username}: {msg}</span>", unsafe_allow_html=True)
             else:
-                st.write(f"{display_name} {msg}")
+                st.markdown(f"<span style='color:black'>{display_name} {msg}</span>", unsafe_allow_html=True)
     else:
         st.info("No messages yet.")
 
@@ -152,3 +180,7 @@ if st.session_state.is_admin:
         st.write("🧾 Currently Banned Users:")
         banned = get_banned_users()
         st.write(banned if banned else "None")
+
+# === AUTO REFRESH ===
+time.sleep(2)
+st.rerun()
