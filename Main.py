@@ -3,7 +3,6 @@ import sqlite3
 from datetime import datetime
 import re
 import time
-import pandas as pd
 
 # === DATABASE SETUP ===
 DB_FILE = "chat.db"
@@ -15,7 +14,7 @@ c.execute("""
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT,
         message TEXT,
-        color TEXT DEFAULT 'black',
+        color TEXT DEFAULT 'white',
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )
 """)
@@ -24,15 +23,6 @@ c.execute("""
         username TEXT PRIMARY KEY
     )
 """)
-c.execute("""
-    CREATE TABLE IF NOT EXISTS muted_users (
-        username TEXT PRIMARY KEY
-    )
-""")
-try:
-    c.execute('ALTER TABLE messages ADD COLUMN color TEXT DEFAULT \'black\';')
-except:
-    pass
 conn.commit()
 
 # === BAD WORDS FILTER ===
@@ -59,12 +49,10 @@ def censor_text(text):
         text = regex.sub(lambda m: '*' * len(word), text)
     return text
 
-# === DB ACTIONS ===
-def add_message(username, message, color='black'):
+# === DATABASE ACTIONS ===
+def add_message(username, message, color='white'):
     username = censor_text(username)
     message = censor_text(message)
-    if is_muted(username):
-        return
     c.execute("INSERT INTO messages (username, message, color) VALUES (?, ?, ?)", (username, message, color))
     conn.commit()
 
@@ -78,7 +66,6 @@ def clear_messages():
 
 def ban_user(username):
     c.execute("INSERT OR IGNORE INTO banned_users (username) VALUES (?)", (username,))
-    unmute_user(username)
     conn.commit()
 
 def is_banned(username):
@@ -89,60 +76,35 @@ def get_banned_users():
     c.execute("SELECT username FROM banned_users")
     return [row[0] for row in c.fetchall()]
 
-def mute_user(username):
-    c.execute("INSERT OR IGNORE INTO muted_users (username) VALUES (?)", (username,))
-    conn.commit()
+# === UI & LOGIC ===
 
-def unmute_user(username):
-    c.execute("DELETE FROM muted_users WHERE username = ?", (username,))
-    conn.commit()
-
-def is_muted(username):
-    c.execute("SELECT 1 FROM muted_users WHERE username = ?", (username,))
-    return c.fetchone() is not None
-
-def get_muted_users():
-    c.execute("SELECT username FROM muted_users")
-    return [row[0] for row in c.fetchall()]
-
-def get_stats():
-    c.execute("SELECT COUNT(DISTINCT username) FROM messages")
-    users_count = c.fetchone()[0] or 0
-    c.execute("SELECT COUNT(*) FROM messages")
-    messages_count = c.fetchone()[0] or 0
-    return users_count, messages_count
-
-def export_chat():
-    c.execute("SELECT username, message, color, timestamp FROM messages ORDER BY id")
-    rows = c.fetchall()
-    df = pd.DataFrame(rows, columns=["Username", "Message", "Color", "Timestamp"])
-    return df.to_csv(index=False).encode('utf-8')
-
-# === APP START ===
-st.set_page_config("Chat Room", layout="wide")
+st.set_page_config(page_title="📡 SQLite Real-time Chat Room", layout="wide")
 st.title("📡 SQLite Real-time Chat Room")
 
+# Login and rules popup - only once per session
 if "username" not in st.session_state or not st.session_state.username:
-    username = st.text_input("Enter your username:", key="username_input")
+    username = st.text_input("Enter your username:")
     if username:
         if "rules_accepted" not in st.session_state:
-            st.info("""
-            **Welcome to the chat! Please follow these rules:**
+            st.info(
+                """
+                **Welcome to the chat! Please follow these rules:**
 
-            1. No offensive language.
-            2. No spamming.
-            3. Admin Username: aryan, if you guess the password you can be admin with me
-            4. I can ban you forever if you do something bad
+                1. No offensive language.
+                2. No spamming.
+                3. Admin username: aryan (password protected)
+                4. Misconduct leads to ban.
 
-            By continuing, you accept these rules.
-            """)
-            accept = st.button("I Accept the Rules", key="accept_rules")
+                By continuing, you accept these rules.
+                """
+            )
+            accept = st.button("I Accept the Rules")
             if not accept:
                 st.stop()
             st.session_state.rules_accepted = True
 
         if username.strip().lower() == "aryan":
-            password = st.text_input("Enter admin password:", type="password", key="admin_password")
+            password = st.text_input("Enter admin password:", type="password")
             if password != "patrick@234":
                 st.warning("🔒 Wrong password. Try again.")
                 st.stop()
@@ -150,7 +112,6 @@ if "username" not in st.session_state or not st.session_state.username:
                 st.session_state.is_admin = True
         else:
             st.session_state.is_admin = False
-
         st.session_state.username = username.strip()
     else:
         st.stop()
@@ -159,7 +120,7 @@ if is_banned(st.session_state.username):
     st.error("🚫 You are banned from this chat.")
     st.stop()
 
-# === TABS ===
+# Tabs
 if st.session_state.is_admin:
     tabs = st.tabs(["💬 Chat", "🛠️ Admin"])
     chat_tab, admin_tab = tabs
@@ -167,70 +128,72 @@ else:
     tabs = st.tabs(["💬 Chat"])
     chat_tab = tabs[0]
 
-# === CHAT TAB ===
-# --- Inside chat tab ---
+with chat_tab:
+    st.subheader("Send Message")
 
-admin_color = 'gold'
-if st.session_state.is_admin:
-    admin_color = st.color_picker("Pick your message text color", value=st.session_state.get("admin_color", "#FFD700"), key="color_picker")
-    st.session_state.admin_color = admin_color
+    # Admin color picker
+    if st.session_state.is_admin:
+        admin_color = st.color_picker(
+            "Pick your message text color",
+            value=st.session_state.get("admin_color", "#FFD700"),
+            key="color_picker"
+        )
+        st.session_state.admin_color = admin_color
+    else:
+        admin_color = None
 
-if "message_input" not in st.session_state:
-    st.session_state.message_input = ""
+    # Initialize message input in session_state
+    if "message_input" not in st.session_state:
+        st.session_state.message_input = ""
 
-def send_message():
-    msg = st.session_state.message_input.strip()
-    if msg:
-        color = st.session_state.admin_color if st.session_state.is_admin else "white"
-        add_message(st.session_state.username, msg, color)
-    st.session_state.message_input = ""
+    def send_message():
+        msg = st.session_state.message_input.strip()
+        if msg:
+            color = st.session_state.admin_color if st.session_state.is_admin else "white"
+            add_message(st.session_state.username, msg, color)
+        st.session_state.message_input = ""
 
-message = st.text_input("Your message:", key="message_input")
+    message = st.text_input("Your message:", key="message_input", on_change=send_message)
 
-if st.button("Send"):
-    send_message()
-    st.experimental_rerun()
-
-# === ADMIN TAB ===
-if st.session_state.is_admin:
-    with admin_tab:
-        st.subheader("🚨 Admin Tools")
-
-        user_to_ban = st.text_input("Ban a username:", key="ban_user")
-        if st.button("Ban User") and user_to_ban.strip():
-            ban_user(user_to_ban.strip())
-            st.success(f"✅ {user_to_ban} has been banned.")
-
-        user_to_mute = st.text_input("Mute a username:", key="mute_user")
-        if st.button("Mute User") and user_to_mute.strip():
-            mute_user(user_to_mute.strip())
-            st.success(f"🔇 {user_to_mute} has been muted.")
-
-        user_to_unmute = st.text_input("Unmute a username:", key="unmute_user")
-        if st.button("Unmute User") and user_to_unmute.strip():
-            unmute_user(user_to_unmute.strip())
-            st.success(f"🔊 {user_to_unmute} has been unmuted.")
-
+    # Admin clear messages button
+    if st.session_state.is_admin:
         if st.button("🧨 Clear All Messages"):
             clear_messages()
             st.success("💣 All messages cleared.")
+            st.rerun()
 
-        if st.button("📤 Export Chat History as CSV"):
-            csv_data = export_chat()
-            st.download_button("Download Chat CSV", csv_data, file_name="chat_history.csv", mime="text/csv")
+    st.subheader("📜 Chat History (latest first)")
+
+    messages = get_messages()
+
+    if messages:
+        for username, msg, color, ts in messages:
+            if username.strip().lower() == "aryan":
+                used_color = color if color else "#FFD700"
+                st.markdown(
+                    f"<span style='color:{used_color};font-weight:bold'>[{ts.split('.')[0]}] {username}: {msg}</span>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    f"<span style='color:white'>[{ts.split('.')[0]}] {username}:</span> {msg}",
+                    unsafe_allow_html=True,
+                )
+    else:
+        st.info("No messages yet.")
+
+if st.session_state.is_admin:
+    with admin_tab:
+        st.subheader("🚨 Admin Tools")
+        user_to_ban = st.text_input("Ban a username:")
+        if st.button("Ban User") and user_to_ban.strip():
+            ban_user(user_to_ban.strip())
+            st.success(f"✅ {user_to_ban} has been banned.")
 
         st.write("🧾 Currently Banned Users:")
         banned = get_banned_users()
         st.write(banned if banned else "None")
 
-        st.write("🔇 Currently Muted Users:")
-        muted = get_muted_users()
-        st.write(muted if muted else "None")
-
-        users_count, messages_count = get_stats()
-        st.write(f"📊 Total users who messaged: **{users_count}**")
-        st.write(f"💬 Total messages sent: **{messages_count}**")
-
-# === AUTO REFRESH ===
+# Auto-refresh every 2 seconds
 time.sleep(2)
 st.rerun()
