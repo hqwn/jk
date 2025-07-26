@@ -156,15 +156,22 @@ with chat_tab:
     if "message_input" not in st.session_state:
         st.session_state.message_input = ""
 
-    message = st.text_input("Your message:", key="message_input")
+    if "message_input" not in st.session_state:
+    st.session_state.message_input = ""
 
-    if st.button("Send"):
+    def send_message():
         msg = st.session_state.message_input.strip()
         if msg:
             color = st.session_state.admin_color if st.session_state.is_admin else "white"
             add_message(st.session_state.username, msg, color)
-            st.session_state.message_input = ""
-            st.rerun()
+            st.session_state.message_input = ""  # reset input after send
+            st.experimental_rerun()
+
+    message = st.text_input("Your message:", key="message_input")
+
+    if st.button("Send"):
+        send_message()
+
 
     if st.session_state.is_admin:
         if st.button("🧨 Clear All Messages"):
