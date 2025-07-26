@@ -81,21 +81,17 @@ with tab1:
         st.success("All messages cleared.")
         st.rerun()
 
-    st.write("⬇️ Click to refresh chat manually:")
-    if st.button("🔄 Refresh Chat"):
-        st.rerun()
-
-    st.write(f"Last refreshed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     st.subheader("Chat History (latest first):")
     msgs = get_messages()
-
+    
     if msgs:
         for username, msg, ts in msgs:
             st.write(f"**[{ts.split('.')[0]}] {username}:** {msg}")
     else:
         st.info("No messages yet.")
-
+    time.sleep(2)
+    st.rerun()
 with tab2:
     st.subheader("Admin")
     user_to_ban = st.text_input("Ban a username:")
