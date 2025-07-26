@@ -93,10 +93,7 @@ if not st.session_state.username:
                 st.error("You are banned from this chat.")
                 st.stop()
             st.session_state.username = username.strip()
-    else:
-        st.stop()
-    time.sleep(2)
-    st.rerun()
+    
     
 st.title("\U0001F4E1 SQLite Real-time Chat Room")
 
