@@ -95,7 +95,9 @@ if not st.session_state.username:
             st.session_state.username = username.strip()
     else:
         st.stop()
-
+    time.sleep(2)
+    st.rerun()
+    
 st.title("\U0001F4E1 SQLite Real-time Chat Room")
 
 if st.session_state.username == "aryan" and st.session_state.admin_authenticated:
