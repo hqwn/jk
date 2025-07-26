@@ -24,8 +24,11 @@ c.execute("""
         username TEXT PRIMARY KEY
     )
 """)
-c.execute('''ALTER TABLE messages ADD COLUMN color TEXT DEFAULT 'black';
-''')
+try:
+    c.execute('''ALTER TABLE messages ADD COLUMN color TEXT DEFAULT 'black';
+    ''')
+except:
+    pass
 conn.commit()
 
 # === BAD WORDS FILTER ===
