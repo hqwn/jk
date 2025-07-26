@@ -142,18 +142,48 @@ with chat_tab:
     else:
         admin_color = None
 
-    # Initialize message input in session_state
+    # Initialize message input in session_state if not exists
     if "message_input" not in st.session_state:
         st.session_state.message_input = ""
 
-    def send_message():
+    # Text input without on_change
+    message = st.text_input("Your message:", key="message_input")
+
+    if st.button("Send"):
         msg = st.session_state.message_input.strip()
         if msg:
             color = st.session_state.admin_color if st.session_state.is_admin else "white"
             add_message(st.session_state.username, msg, color)
-        st.session_state.message_input = ""
+            st.session_state.message_input = ""  # clear input after send
+            st.experimental_rerun()  # rerun after sending
 
-    message = st.text_input("Your message:", key="message_input", on_change=send_message)
+    # Admin clear messages button
+    if st.session_state.is_admin:
+        if st.button("🧨 Clear All Messages"):
+            clear_messages()
+            st.success("💣 All messages cleared.")
+            st.experimental_rerun()
+
+    st.subheader("📜 Chat History (latest first)")
+
+    messages = get_messages()
+
+    if messages:
+        for username, msg, color, ts in messages:
+            if username.strip().lower() == "aryan":
+                used_color = color if color else "#FFD700"
+                st.markdown(
+                    f"<span style='color:{used_color};font-weight:bold'>[{ts.split('.')[0]}] {username}: {msg}</span>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    f"<span style='color:white'>[{ts.split('.')[0]}] {username}:</span> {msg}",
+                    unsafe_allow_html=True,
+                )
+    else:
+        st.info("No messages yet.")
+
 
     # Admin clear messages button
     if st.session_state.is_admin:
