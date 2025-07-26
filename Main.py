@@ -186,7 +186,7 @@ with chat_tab:
     if send_clicked and st.session_state.message_input.strip():
         add_message(st.session_state.username, st.session_state.message_input.strip(), admin_color if st.session_state.is_admin else "white")
         st.session_state.message_input = ""
-        st.experimental_rerun()
+        st.rerun()
 
     st.subheader("📜 Chat History (latest first)")
 
@@ -245,4 +245,4 @@ if st.session_state.is_admin:
 
 # === AUTO REFRESH ===
 time.sleep(2)
-st.experimental_rerun()
+st.rerun()
