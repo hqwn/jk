@@ -118,7 +118,7 @@ with st.form(key="message_form", clear_on_submit=True):
 if submit and message.strip():
     color = admin_color if st.session_state.username == "aryan" else "white"
     add_message(st.session_state.username, message.strip(), color)
-    st.rerun()
+    st.experimental_rerun()
 
 st.subheader("\U0001F4DC Chat History")
 msgs = get_messages()
@@ -132,7 +132,12 @@ if msgs:
 else:
     st.info("No messages yet.")
 
-# Auto refresh every 2 seconds using time and rerun
-if time.time() % 2 < 0.1:
-    time.sleep(0.1)
-    st.rerun()
+# Auto-refresh using JavaScript every 2 seconds
+st.markdown("""
+<script>
+function refresh() {
+    window.location.reload();
+}
+setInterval(refresh, 2000);
+</script>
+""", unsafe_allow_html=True)
