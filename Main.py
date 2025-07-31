@@ -4,20 +4,14 @@ import re
 import time
 from datetime import datetime
 import pandas as pd
-import os
 
-# --- Setup ---
-CHAT_DB = "chat.db"
-USER_DB = "users.db"
+# --- DB setup ---
+DB_FILE = "chat.db"
+conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+c = conn.cursor()
 
-# DB connections
-chat_conn = sqlite3.connect(CHAT_DB, check_same_thread=False)
-user_conn = sqlite3.connect(USER_DB, check_same_thread=False)
-chat_cursor = chat_conn.cursor()
-user_cursor = user_conn.cursor()
-
-# Chat table
-chat_cursor.execute("""
+# Create messages and ban tables
+c.execute("""
 CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT,
@@ -26,23 +20,12 @@ CREATE TABLE IF NOT EXISTS messages (
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 )
 """)
-
-chat_cursor.execute("""
+c.execute("""
 CREATE TABLE IF NOT EXISTS banned_users (
     username TEXT PRIMARY KEY
 )
 """)
-chat_conn.commit()
-
-# User table
-user_cursor.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)
-""")
-user_conn.commit()
+conn.commit()
 
 # --- Censorship ---
 BAD_WORDS = ["fuck", "shit", "bitch", "asshole", "dick"]
@@ -56,132 +39,142 @@ def censor_text(text):
         text = re.sub(pattern, lambda m: '*' * len(word), text, flags=re.IGNORECASE)
     return text
 
-# --- Chat functions ---
+# --- Core Functions ---
 def add_message(username, message, color='white'):
     username = censor_text(username)
     message = censor_text(message)
-    chat_cursor.execute("INSERT INTO messages (username, message, color) VALUES (?, ?, ?)", (username, message, color))
-    chat_conn.commit()
+    c.execute("INSERT INTO messages (username, message, color) VALUES (?, ?, ?)", (username, message, color))
+    conn.commit()
     delete_old_messages()
 
-def get_messages(limit=50):
-    chat_cursor.execute("SELECT id, username, message, color FROM messages ORDER BY id ASC LIMIT ?", (limit,))
-    return chat_cursor.fetchall()
+def get_messages(limit=100):
+    c.execute("SELECT id, username, message, color FROM messages ORDER BY id ASC LIMIT ?", (limit,))
+    return c.fetchall()
 
 def delete_old_messages():
-    chat_cursor.execute("DELETE FROM messages WHERE id NOT IN (SELECT id FROM messages ORDER BY id DESC LIMIT 50)")
-    chat_conn.commit()
+    c.execute("DELETE FROM messages WHERE id NOT IN (SELECT id FROM messages ORDER BY id DESC LIMIT 100)")
+    conn.commit()
 
 def is_banned(username):
-    chat_cursor.execute("SELECT 1 FROM banned_users WHERE username=?", (username,))
-    return chat_cursor.fetchone() is not None
+    c.execute("SELECT 1 FROM banned_users WHERE username=?", (username,))
+    return c.fetchone() is not None
 
 def ban_user(username):
-    chat_cursor.execute("INSERT OR IGNORE INTO banned_users (username) VALUES (?)", (username,))
-    chat_conn.commit()
+    c.execute("INSERT OR IGNORE INTO banned_users (username) VALUES (?)", (username,))
+    conn.commit()
 
 def unban_user(username):
-    chat_cursor.execute("DELETE FROM banned_users WHERE username=?", (username,))
-    chat_conn.commit()
+    c.execute("DELETE FROM banned_users WHERE username=?", (username,))
+    conn.commit()
 
 def clear_chat():
-    chat_cursor.execute("DELETE FROM messages")
-    chat_conn.commit()
+    c.execute("DELETE FROM messages")
+    conn.commit()
 
 def delete_message_by_id(msg_id):
-    chat_cursor.execute("DELETE FROM messages WHERE id=?", (msg_id,))
-    chat_conn.commit()
+    c.execute("DELETE FROM messages WHERE id=?", (msg_id,))
+    conn.commit()
 
-# --- User account logic ---
-def create_user(username):
-    try:
-        user_cursor.execute("INSERT INTO users (username) VALUES (?)", (username,))
-        user_conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False
+# --- Streamlit Config ---
+st.set_page_config(page_title="💬 Chat Room", layout="wide")
+st.markdown(
+    """
+    <style>
+        .block-container {padding-top: 1rem;}
+        [data-testid="stChatInput"] {position: fixed; bottom: 1rem; width: 100%;}
+        [data-testid="stVerticalBlock"] > div {padding-bottom: 3rem;}
+        .chat-bubble {
+            padding: 0.75rem 1rem;
+            border-radius: 1rem;
+            margin-bottom: 0.4rem;
+            max-width: 70%;
+            color: white;
+            font-size: 0.95rem;
+            word-break: break-word;
+        }
+        .mine { background-color: #1e90ff; align-self: flex-end; }
+        .theirs { background-color: #2f3136; align-self: flex-start; }
+        .username-label {
+            font-size: 0.75rem;
+            color: #aaa;
+            margin-bottom: 0.1rem;
+            margin-left: 0.2rem;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-def user_exists(username):
-    user_cursor.execute("SELECT 1 FROM users WHERE username=?", (username,))
-    return user_cursor.fetchone() is not None
-
-# --- Streamlit App Setup ---
-st.set_page_config(page_title="💬 Login Chat", page_icon="💬", layout="wide")
-
+# --- Session Setup ---
 if "username" not in st.session_state:
     with st.container():
-        st.title("🔐 Login / Sign Up")
-        choice = st.radio("Select Action", ["Sign Up", "Login"])
-        uname = st.text_input("Username")
-
-        if st.button(choice):
-            if not uname.strip():
-                st.warning("Username required")
-                st.stop()
-
-            if choice == "Sign Up":
-                if user_exists(uname):
-                    st.error("Username already taken.")
-                elif is_banned(uname):
-                    st.error("You're banned and can't re-use that name.")
-                else:
-                    if create_user(uname.strip()):
-                        st.success("Account created. Welcome!")
-                        st.session_state.username = uname.strip()
-                        st.rerun()
-            elif choice == "Login":
-                if is_banned(uname):
-                    st.error("You're banned.")
+        st.title("🧾 Enter Chat Room")
+        username = st.text_input("Pick a username:")
+        if username:
+            if username.lower() == "aryan":
+                password = st.text_input("Enter admin password", type="password")
+                if password != "thisisnotmypassword":
+                    st.warning("Wrong password for admin.")
                     st.stop()
-                elif user_exists(uname.strip()):
-                    st.session_state.username = uname.strip()
-                    st.success("Logged in!")
-                    st.rerun()
                 else:
-                    st.warning("Username not found. Sign up first.")
-        st.stop()
+                    st.success("Welcome back Aryan")
+                    st.session_state.username = "aryan"
+                    st.session_state.is_admin = True
+                    st.rerun()
+            else:
+                if is_banned(username):
+                    st.error("You're banned from this chat.")
+                    st.stop()
+                st.session_state.username = username.strip()
+                st.session_state.is_admin = False
+                st.rerun()
+    st.stop()
 
 # --- Admin Panel ---
-if st.session_state.username.lower() == "aryan":
+if st.session_state.username == "aryan":
     with st.sidebar:
         st.title("🛠 Admin Panel")
+
         ban_target = st.text_input("Ban user")
-        if st.button("Ban") and ban_target:
+        if st.button("🚫 Ban") and ban_target:
             ban_user(ban_target)
             st.success(f"Banned {ban_target}")
 
         unban_target = st.text_input("Unban user")
-        if st.button("Unban") and unban_target:
+        if st.button("✅ Unban") and unban_target:
             unban_user(unban_target)
             st.success(f"Unbanned {unban_target}")
 
         msg_id = st.text_input("Delete message ID")
-        if st.button("Delete Msg") and msg_id.isdigit():
+        if st.button("🧹 Delete Msg") and msg_id.isdigit():
             delete_message_by_id(int(msg_id))
             st.success(f"Deleted message ID {msg_id}")
 
-        if st.button("🗑 Clear All Chat"):
+        if st.button("🗑 Clear Chat"):
             clear_chat()
-            st.success("Chat cleared.")
+            st.success("Chat cleared")
 
-        st.session_state.slow_mode = st.checkbox("🐢 Slow Mode (3s)", value=st.session_state.slow_mode)
+        if st.button("📥 Export CSV"):
+            c.execute("SELECT * FROM messages ORDER BY id")
+            df = pd.DataFrame(c.fetchall(), columns=["ID", "Username", "Message", "Color", "Timestamp"])
+            st.download_button("Download chat_history.csv", df.to_csv(index=False), file_name="chat_history.csv")
 
 # --- Chat UI ---
-st.title("💬 Live Chat")
-
+st.title("💬 Real-time Chat")
 messages = get_messages()
-for _, username, text, color in messages:
-    avatar = "👤" if username != "aryan" else "🛠"
-    with st.chat_message(username if username != "aryan" else "Admin", avatar=avatar):
-        st.markdown(f"<div style='color:{color}'>{text}</div>", unsafe_allow_html=True)
 
-# --- Chat Input ---
-st.markdown("---")
-msg_color = st.color_picker("Pick your color", "#FFD700") if st.session_state.username == "aryan" else "white"
-msg = st.chat_input("Say something...")
+# Chat bubbles
+for _, uname, msg, color in messages:
+    is_me = uname == st.session_state.username
+    bubble_class = "mine" if is_me else "theirs"
+    with st.chat_message(uname if uname != "aryan" else "Admin", avatar="👤" if uname != "aryan" else "🛠"):
+        st.markdown(f"<div class='username-label'>{uname}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='chat-bubble {bubble_class}' style='background-color:{color if uname=='aryan' else '#2f3136'}'>{msg}</div>", unsafe_allow_html=True)
 
-if msg:
-    add_message(st.session_state.username, msg.strip(), msg_color)
-    if st.session_state.slow_mode:
-        time.sleep(3)
+# --- Message Input (Sticky at Bottom) ---
+msg_color = st.color_picker("Pick your color", "#1e90ff") if st.session_state.username == "aryan" else "#2f3136"
+message = st.chat_input("Type your message...")
+
+if message:
+    add_message(st.session_state.username, message.strip(), msg_color)
     st.rerun()
