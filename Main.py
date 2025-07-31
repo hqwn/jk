@@ -178,3 +178,5 @@ message = st.chat_input("Type your message...")
 if message:
     add_message(st.session_state.username, message.strip(), msg_color)
     st.rerun()
+time.sleep(2)
+st.rerun()
