@@ -28,7 +28,29 @@ CREATE TABLE IF NOT EXISTS banned_users (
 conn.commit()
 
 # --- Censorship ---
-BAD_WORDS = ["fuck", "shit", "bitch", "asshole", "dick"]
+BAD_WORDS = [
+    # Basic profanity
+    "fuck", "shit", "bitch", "asshole", "bastard", "dick", "cock", "pussy", "cunt", "tit", "whore", "slut",
+
+    # Variants and leetspeak
+    "fck", "fuk", "f*ck", "f**k", "sh1t", "sht", "biatch", "b!tch", "a$$", "d1ck", "p*ssy", "c0ck", "w*ore", "s1ut",
+
+    # Racial/ethnic slurs (use with caution; important for moderation)
+    "nigger", "nigga", "chink", "spic", "gook", "kike", "raghead", "camel jockey",
+
+    # Homophobic/transphobic slurs
+    "fag", "faggot", "dyke", "tranny", "homo", "queer",
+
+    # Self-harm or violent phrases (optional)
+    "kill myself", "commit suicide", "die bitch",
+
+    # Sexual harassment terms
+    "suck my dick", "blowjob", "handjob", "anal", "deepthroat", "69", "cum", "jizz", "masturbate", "fingering",
+
+    # Insults/slurs (general)
+    "retard", "moron", "idiot", "dumbass", "loser"
+]
+
 
 def build_obfuscated_pattern(word):
     return ''.join([re.escape(ch) + r'\s*[^a-zA-Z0-9]*' for ch in word])
