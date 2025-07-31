@@ -47,12 +47,12 @@ def add_message(username, message, color='white'):
     conn.commit()
     delete_old_messages()
 
-def get_messages(limit=20):
-    c.execute("SELECT id, username, message, color, timestamp FROM messages ORDER BY id DESC LIMIT ?", (limit,))
+def get_messages(limit=50):
+    c.execute("SELECT id, username, message, color, timestamp FROM messages ORDER BY id ASC LIMIT ?", (limit,))
     return c.fetchall()
 
 def delete_old_messages():
-    c.execute("DELETE FROM messages WHERE id NOT IN (SELECT id FROM messages ORDER BY id DESC LIMIT 20)")
+    c.execute("DELETE FROM messages WHERE id NOT IN (SELECT id FROM messages ORDER BY id DESC LIMIT 50)")
     conn.commit()
 
 # --- Admin & User Management ---
@@ -77,7 +77,7 @@ def clear_chat():
     conn.commit()
 
 # --- Session State Setup ---
-st.set_page_config(page_title="SQLite Chat", page_icon="📡", layout="wide")
+st.set_page_config(page_title="💬 Discord-style Chat", page_icon="💬", layout="wide")
 
 if "username" not in st.session_state:
     st.session_state.username = ""
@@ -88,86 +88,79 @@ if "slow_mode" not in st.session_state:
 
 # --- Login Logic ---
 if not st.session_state.username:
-    username = st.text_input("Enter your username:")
-    if username:
-        if username.lower() == "aryan":
-            pwd = st.text_input("Enter admin password:", type="password")
-            if pwd == "thisisnotmypassword":
-                st.session_state.admin_authenticated = True
-                st.session_state.username = "aryan"
+    with st.sidebar:
+        st.title("🔐 Login")
+        username = st.text_input("Username:")
+        if username:
+            if username.lower() == "aryan":
+                pwd = st.text_input("Admin Password", type="password")
+                if pwd == "thisisnotmypassword":
+                    st.session_state.admin_authenticated = True
+                    st.session_state.username = "aryan"
+                else:
+                    st.warning("Wrong password")
+                    st.stop()
             else:
-                st.warning("Incorrect password")
-                st.stop()
-        else:
-            if is_banned(username.strip()):
-                st.error("You are banned from this chat.")
-                st.stop()
-            st.session_state.username = username.strip()
-
-# --- Title ---
-st.title("📡 Real-time SQLite Chat")
+                if is_banned(username.strip()):
+                    st.error("🚫 You are banned from this chat.")
+                    st.stop()
+                st.session_state.username = username.strip()
+    st.stop()
 
 # --- Admin Panel ---
 if st.session_state.username == "aryan" and st.session_state.admin_authenticated:
-    with st.expander("🔧 Admin Panel", expanded=True):
-        col1, col2 = st.columns(2)
+    with st.sidebar:
+        st.title("🔧 Admin Panel")
 
-        with col1:
-            ban_target = st.text_input("Ban user")
-            if st.button("Ban") and ban_target:
-                ban_user(ban_target)
-                st.success(f"Banned: {ban_target}")
+        ban_target = st.text_input("Ban user")
+        if st.button("Ban") and ban_target:
+            ban_user(ban_target)
+            st.success(f"Banned {ban_target}")
 
-        with col2:
-            unban_target = st.text_input("Unban user")
-            if st.button("Unban") and unban_target:
-                unban_user(unban_target)
-                st.success(f"Unbanned: {unban_target}")
+        unban_target = st.text_input("Unban user")
+        if st.button("Unban") and unban_target:
+            unban_user(unban_target)
+            st.success(f"Unbanned {unban_target}")
 
-        col3, col4 = st.columns(2)
-        with col3:
-            msg_id = st.text_input("Delete message by ID")
-            if st.button("Delete Msg") and msg_id.isdigit():
-                delete_message_by_id(int(msg_id))
-                st.success(f"Deleted message ID {msg_id}")
-        with col4:
-            if st.button("🗑 Clear All Chat"):
-                clear_chat()
-                st.success("All messages deleted.")
+        msg_id = st.text_input("Delete message ID")
+        if st.button("Delete Msg") and msg_id.isdigit():
+            delete_message_by_id(int(msg_id))
+            st.success(f"Deleted message ID {msg_id}")
 
-        st.session_state.slow_mode = st.checkbox("🐢 Enable Slow Mode (3s delay)", value=st.session_state.slow_mode)
+        if st.button("🗑 Clear All Chat"):
+            clear_chat()
+            st.success("Chat cleared.")
 
-        if st.button("📥 Download Chat History"):
+        st.session_state.slow_mode = st.checkbox("🐢 Slow Mode (3s)", value=st.session_state.slow_mode)
+
+        if st.button("📥 Download Chat"):
             c.execute("SELECT * FROM messages ORDER BY id")
             df = pd.DataFrame(c.fetchall(), columns=["ID", "Username", "Message", "Color", "Timestamp"])
             st.download_button("Download CSV", df.to_csv(index=False), file_name="chat_history.csv")
 
-# --- Chat Section ---
+# --- Display Chat Messages ---
+st.markdown("<style>div.block-container {padding-top: 1rem;}</style>", unsafe_allow_html=True)
+st.title("💬 Live Chat")
+
 with st.container():
+    messages = get_messages()
+    for mid, username, text, color, ts in messages:
+        ts_fmt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S").strftime("%H:%M")
+        with st.chat_message(username if username != "aryan" else "Admin", avatar="👤" if username != "aryan" else "🛠"):
+            st.markdown(f"**[{ts_fmt}] {username}**", unsafe_allow_html=True)
+            st.markdown(f"<div style='color:{color}'>{text}</div>", unsafe_allow_html=True)
+
+# --- Chat Input (Bottom) ---
+with st.container():
+    st.markdown("---")
     if st.session_state.username == "aryan":
-        admin_color = st.color_picker("Pick your message color", "#FFD700")
+        admin_color = st.color_picker("Pick admin message color", "#FFD700")
     else:
         admin_color = "white"
 
-    msg = st.chat_input("Type your message here...")
-
-    if msg and msg.strip():
+    msg = st.chat_input("Type your message...")
+    if msg:
         add_message(st.session_state.username, msg.strip(), admin_color)
         if st.session_state.slow_mode:
             time.sleep(3)
         st.rerun()
-
-# --- Display Chat ---
-st.subheader("📜 Recent Messages")
-messages = get_messages()
-
-for msg_id, username, text, color, ts in messages:
-    t = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S").strftime("%H:%M")
-    name_html = f"<span style='color:{color}; font-weight:bold;'>[{t}] {username}:</span>"
-    msg_html = f"<span style='color:white'>{text}</span>" if username.lower() != "aryan" else f"<span style='color:{color}'>{text}</span>"
-    st.markdown(f"{name_html} {msg_html}", unsafe_allow_html=True)
-
-# --- Auto-refresh logic ---
-time.sleep(2)
-st.rerun()
-
