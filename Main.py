@@ -143,7 +143,7 @@ if st.session_state.username == "aryan" and st.session_state.admin_authenticated
 admin_color = st.color_picker("Pick admin message color", "#FFD700") if st.session_state.username == "aryan" else None
 
 with st.form(key="message_form", clear_on_submit=True):
-    message = st.text_input("Your message:")
+    message = st.chat_input("Your message:")
     submit = st.form_submit_button("Send")
 
 if submit and message.strip():
